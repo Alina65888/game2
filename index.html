@@ -1971,27 +1971,6 @@ statusEl.textContent = Api.serverAvailable()
   simulateOpponentAnswer(q);
 }
 
- function simulateOpponentAnswer(question) {
-  const baseDelay = 1300;
-  const extra = Math.random() * 2500;
-  const delay = baseDelay + extra;
-  const willAnswerCorrect = Math.random() < 0.7;
-
-  setTimeout(() => {
-    if (!gameState.isDuelActive) return;
-
-    const idx = gameState.questions.indexOf(question);
-    if (idx === -1 || idx !== gameState.currentQuestionIndex) return;
-    if (!gameState.questionAnswered) {
-      if (willAnswerCorrect) {
-        gameState.opponentScore++;
-      }
-      $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
-    }
-  }, delay);
-}
-
-
 async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
   if (gameState.questionAnswered) return;
   gameState.questionAnswered = true;
