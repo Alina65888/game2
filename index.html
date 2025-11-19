@@ -2214,27 +2214,26 @@ statusEl.textContent = Api.serverAvailable()
       { once: true }
     );
 
-    // Проверяем сервер рейтинга
+        // Проверяем сервер рейтинга
     Api.checkServer().then((ok) => {
       const baseLabel = ` (API: ${Api.apiBase})`;
-if (ok) {
-updateConnectionUI(
-true,
-"Статус: сервер рейтинга подключен. Ваш прогресс и рейтинг сохраняются в базе данных." +
-baseLabel
-);
-} else {
-updateConnectionUI(
-false,
-"Статус: сервер рейтинга недоступен, используется локальный демо-режим." + 
-	baseLabel
-);
-
-     // Прогрев базы: сразу запрашиваем лидерборд
       if (ok) {
+        updateConnectionUI(
+          true,
+          "Статус: сервер рейтинга подключен. Ваш прогресс и рейтинг сохраняются в базе данных." +
+          baseLabel
+        );
+        
+        // Прогрев базы: сразу запрашиваем лидерборд
         Api.getLeaderboard().catch((err) => {
           console.warn("DB warmup (getLeaderboard) failed", err);
         });
+      } else {
+        updateConnectionUI(
+          false,
+          "Статус: сервер рейтинга недоступен, используется локальный демо-режим." + 
+          baseLabel
+        );
       }
     });
 
