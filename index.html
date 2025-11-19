@@ -1937,7 +1937,6 @@ statusEl.textContent = Api.serverAvailable()
   const total = gameState.timerTotalMs;
   const startedAt = Date.now();
 
-  // Тик и анимация только пока дуэль активна
   gameState.timerInterval = setInterval(() => {
     if (!gameState.isDuelActive) {
       clearInterval(gameState.timerInterval);
@@ -1960,7 +1959,6 @@ statusEl.textContent = Api.serverAvailable()
     }
   }, 90);
 
-  // Автоответ по таймеру только если дуэль всё ещё активна
   gameState.timerTimeout = setTimeout(() => {
     if (!gameState.isDuelActive) return;
     if (!gameState.questionAnswered) {
@@ -1968,9 +1966,10 @@ statusEl.textContent = Api.serverAvailable()
       handlePlayerAnswer(null, null, true);
     }
   }, total);
+
+  // ★★★★ ДОБАВЬТЕ ЭТУ СТРОКУ - бот начинает думать над ответом ★★★★
+  simulateOpponentAnswer(q);
 }
-
-
 
  function simulateOpponentAnswer(question) {
   const baseDelay = 1300;
@@ -1993,58 +1992,61 @@ statusEl.textContent = Api.serverAvailable()
 }
 
 
-  async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
-    if (gameState.questionAnswered) return;
-    gameState.questionAnswered = true;
-    resetTimer();
+async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
+  if (gameState.questionAnswered) return;
+  gameState.questionAnswered = true;
+  resetTimer();
 
-    const q = gameState.questions[gameState.currentQuestionIndex];
-    const correctIdx = q.correctIndex;
-    const answersButtons = Array.from(document.querySelectorAll("#answers-container .answer-btn"));
+  const q = gameState.questions[gameState.currentQuestionIndex];
+  const correctIdx = q.correctIndex;
+  const answersButtons = Array.from(document.querySelectorAll("#answers-container .answer-btn"));
 
-    answersButtons.forEach((b) => {
-      b.classList.add("disabled");
-      const idx = parseInt(b.dataset.index, 10);
-      if (idx === correctIdx) {
-        b.classList.add("correct");
-      }
-    });
-
-    let playerCorrect = false;
-
-    if (optionIndex !== null && optionIndex === correctIdx) {
-      playerCorrect = true;
-      gameState.playerScore++;
-      if (btn) btn.classList.add("correct");
-      Sound.correct();
-    } else if (optionIndex !== null && optionIndex !== correctIdx) {
-      if (btn) btn.classList.add("wrong");
-      Sound.wrong();
+  // Показываем правильный ответ
+  answersButtons.forEach((b) => {
+    b.classList.add("disabled");
+    const idx = parseInt(b.dataset.index, 10);
+    if (idx === correctIdx) {
+      b.classList.add("correct");
     }
+  });
 
-    $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
+  let playerCorrect = false;
 
-    if (playerCorrect) {
-      if (q.category.includes("Безопас")) {
-        player.stats.safetyCorrect++;
-      } else if (q.category.includes("Эколог")) {
-        player.stats.ecoCorrect++;
-      } else if (q.category.includes("Инновац")) {
-        player.stats.innovationCorrect++;
-      }
-    }
-
-    savePlayerLocal();
-
-    setTimeout(() => {
-      gameState.currentQuestionIndex++;
-      if (gameState.currentQuestionIndex >= gameState.questions.length) {
-        finishDuel();
-      } else {
-        showQuestion();
-      }
-    }, 900);
+  if (optionIndex !== null && optionIndex === correctIdx) {
+    playerCorrect = true;
+    gameState.playerScore++;
+    if (btn) btn.classList.add("correct");
+    Sound.correct();
+  } else if (optionIndex !== null && optionIndex !== correctIdx) {
+    if (btn) btn.classList.add("wrong");
+    Sound.wrong();
   }
+
+  $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
+
+  // Статистика по категориям
+  if (playerCorrect) {
+    if (q.category.includes("Безопас")) {
+      player.stats.safetyCorrect++;
+    } else if (q.category.includes("Эколог")) {
+      player.stats.ecoCorrect++;
+    } else if (q.category.includes("Инновац")) {
+      player.stats.innovationCorrect++;
+    }
+  }
+
+  savePlayerLocal();
+
+  // Переходим к следующему вопросу через 1.5 секунды
+  setTimeout(() => {
+    gameState.currentQuestionIndex++;
+    if (gameState.currentQuestionIndex >= gameState.questions.length) {
+      finishDuel();
+    } else {
+      showQuestion();
+    }
+  }, 1500);
+}
 
   async function finishDuel() {
     gameState.isDuelActive = false;
@@ -2365,7 +2367,66 @@ resetTimer();
     // В самом конце — запуск анимации загрузки
     startLoadingSequence();
   }
+function simulateOpponentAnswer(question) {
+  // Случайное время ответа бота: от 1 до 8 секунд
+  const minDelay = 1000; // 1 секунда
+  const maxDelay = 8000; // 8 секунд
+  const delay = minDelay + Math.random() * (maxDelay - minDelay);
+  
+  // Шанс правильного ответа: 70%
+  const willAnswerCorrect = Math.random() < 0.7;
+  
+  // Случайный выбор ответа (правильного или неправильного)
+  const correctIdx = question.correctIndex;
+  let chosenAnswerIndex;
+  
+  if (willAnswerCorrect) {
+    chosenAnswerIndex = correctIdx; // Правильный ответ
+  } else {
+    // Выбираем случайный неправильный ответ
+    const wrongAnswers = question.options.map((_, idx) => idx).filter(idx => idx !== correctIdx);
+    chosenAnswerIndex = wrongAnswers[Math.floor(Math.random() * wrongAnswers.length)];
+  }
 
+  console.log(`Бот ответит через ${(delay/1000).toFixed(1)}сек, правильно: ${willAnswerCorrect}, ответ: ${chosenAnswerIndex}`);
+
+  setTimeout(() => {
+    if (!gameState.isDuelActive) return;
+    if (!gameState.questionAnswered) {
+      // Бот отвечает только если игрок еще не ответил
+      gameState.questionAnswered = true;
+      resetTimer();
+      
+      if (willAnswerCorrect) {
+        gameState.opponentScore++;
+      }
+      
+      $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
+      
+      // Показываем ответ бота на экране
+      const answersButtons = Array.from(document.querySelectorAll("#answers-container .answer-btn"));
+      answersButtons.forEach((btn, idx) => {
+        btn.classList.add("disabled");
+        if (idx === correctIdx) {
+          btn.classList.add("correct");
+        }
+        if (idx === chosenAnswerIndex && idx !== correctIdx) {
+          btn.classList.add("wrong");
+        }
+      });
+
+      // Переходим к следующему вопросу через 1.5 секунды
+      setTimeout(() => {
+        gameState.currentQuestionIndex++;
+        if (gameState.currentQuestionIndex >= gameState.questions.length) {
+          finishDuel();
+        } else {
+          showQuestion();
+        }
+      }, 1500);
+    }
+  }, delay);
+}
   document.addEventListener("DOMContentLoaded", init);
 </script>
 </body>
