@@ -88,6 +88,19 @@
       text-transform: uppercase;
       opacity: 0.9;
     }
+.header-badge.badge-online {
+background: rgba(255, 255, 255, 0.08);
+border-color: rgba(255, 255, 255, 0.24);
+}
+.header-badge.badge-demo {
+background: rgba(255, 255, 255, 0.16);
+ border-color: rgba(255, 255, 255, 0.36);
+}
+.header-badge.badge-warning {
+background: var(--sibur-accent-yellow);
+color: var(--sibur-graphite);
+border-color: rgba(0, 0, 0, 0.05);
+}
 
     main {
       flex: 1;
@@ -1367,9 +1380,18 @@
   const Api = (() => {
     let serverAvailable = false;
 
+	  const queryBase = new URLSearchParams(location.search).get("apiBase");
+const baseFromWindow = typeof window !== "undefined" ? window.SIBUR_API_BASE : null;
+const rawApiBase = (queryBase || baseFromWindow || "/api").trim();
+const apiBase = rawApiBase.endsWith("/") ? rawApiBase.slice(0, -1) : rawApiBase;
+
+function apiUrl(path) {
+return apiBase + (path.startsWith("/") ? path : "/" + path);
+}
+
     async function checkServer() {
       try {
-        const res = await fetch("/api/profile/me", { method: "GET", credentials: "include" });
+       const res = await fetch(apiUrl("/profile/me"), { method: "GET", credentials: "include" });
         if (!res.ok) throw new Error("status " + res.status);
         serverAvailable = true;
         return true;
@@ -1379,11 +1401,11 @@
         return false;
       }
     }
-
+	  
     async function getProfile(localPlayer) {
       if (!serverAvailable) return null;
       try {
-        const res = await fetch("/api/profile/me", { credentials: "include" });
+       const res = await fetch(apiUrl("/profile/me"), { credentials: "include" });
         if (!res.ok) throw new Error("status " + res.status);
         return await res.json();
       } catch (e) {
@@ -1395,7 +1417,7 @@
     async function finishDuel(payload) {
       if (!serverAvailable) return null;
       try {
-        const res = await fetch("/api/duels/finish", {
+        const res = await fetch(apiUrl("/duels/finish"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -1412,7 +1434,7 @@
     async function getLeaderboard() {
       if (!serverAvailable) return null;
       try {
-        const res = await fetch("/api/leaderboard?limit=50", { credentials: "include" });
+        const res = await fetch(apiUrl("/leaderboard?limit=50"), { credentials: "include" });
         if (!res.ok) throw new Error("status " + res.status);
         return await res.json();
       } catch (e) {
@@ -1424,7 +1446,7 @@
     async function findOpponent(mode) {
   if (!serverAvailable) return null;
   try {
-    const res = await fetch("/api/duels/find-opponent?mode=" + encodeURIComponent(mode), {
+    const res = await fetch(apiUrl("/duels/find-opponent?mode=" + encodeURIComponent(mode)), {
       credentials: "include"
     });
     if (!res.ok) throw new Error("status " + res.status);
@@ -1441,7 +1463,8 @@ return {
   getProfile,
   finishDuel,
   getLeaderboard,
-  findOpponent
+  findOpponent,
+	apiBase
     };
   })();
 
@@ -1532,6 +1555,21 @@ function stopMatchmaking() {
     });
   }
 
+	function updateConnectionUI(isOnline, message) {
+ const badge = document.querySelector(".header-badge");
+ if (badge) {
+badge.textContent = isOnline ? "ONLINE" : "DEMO";
+badge.classList.remove("badge-online", "badge-demo", "badge-warning");
+badge.classList.add(isOnline ? "badge-online" : "badge-demo");
+}
+
+const logo = document.querySelector(".header-logo");
+if (logo) logo.textContent = "QUIZ BATTLE";
+
+const footer = $("splash-footer");
+if (footer) footer.textContent = message;
+}
+	
   function shuffle(array) {
     const arr = array.slice();
     for (let i = arr.length - 1; i > 0; i--) {
@@ -1821,7 +1859,11 @@ function startMatchmaking(mode) {
   let secondsLeft = MATCH_SEARCH_SECONDS;
 
   if (timerEl) timerEl.textContent = String(secondsLeft);
-  if (statusEl) statusEl.textContent = "Ищем соперника среди коллег, которые сейчас в игре…";
+if (statusEl) {
+statusEl.textContent = Api.serverAvailable()
+? "Ищем соперника среди коллег, которые сейчас в игре…"
+: "Работаем в демо-режиме: будет подбор бота, подключите серверный API для реальных дуэлей.";
+}
   if (overlay) overlay.classList.add("active");
 
   matchmakingState.intervalId = setInterval(() => {
@@ -2174,18 +2216,21 @@ function startMatchmaking(mode) {
 
     // Проверяем сервер рейтинга
     Api.checkServer().then((ok) => {
-      const footer = $("splash-footer");
-      if (footer) {
-        if (ok) {
-          footer.textContent =
-            "Статус: сервер рейтинга подключен. Ваш прогресс и рейтинг сохраняются в базе данных.";
-        } else {
-          footer.textContent =
-            "Статус: сервер рейтинга недоступен, используется локальный демо-режим.";
-        }
-      }
+      const baseLabel = ` (API: ${Api.apiBase})`;
+if (ok) {
+updateConnectionUI(
+true,
+"Статус: сервер рейтинга подключен. Ваш прогресс и рейтинг сохраняются в базе данных." +
+baseLabel
+);
+} else {
+updateConnectionUI(
+false,
+"Статус: сервер рейтинга недоступен, используется локальный демо-режим." + 
+	baseLabel
+);
 
-      // Прогрев базы: сразу запрашиваем лидерборд
+     // Прогрев базы: сразу запрашиваем лидерборд
       if (ok) {
         Api.getLeaderboard().catch((err) => {
           console.warn("DB warmup (getLeaderboard) failed", err);
