@@ -1919,15 +1919,25 @@ statusEl.textContent = Api.serverAvailable()
 
   q.options.forEach((opt, idx) => {
     const btn = document.createElement("button");
-    btn.className = "btn answer-btn";
-    btn.textContent = opt;
+    btn.className = "answer-btn";
+    
+    const indexSpan = document.createElement("span");
+    indexSpan.className = "index";
+    indexSpan.textContent = String.fromCharCode(65 + idx); // A, B, C, D
+    
+    const textSpan = document.createElement("span");
+    textSpan.className = "text";
+    textSpan.textContent = opt;
+    
+    btn.appendChild(indexSpan);
+    btn.appendChild(textSpan);
     btn.dataset.index = String(idx);
+    
     btn.addEventListener("click", () => {
       if (gameState.questionAnswered) return;
-      gameState.questionAnswered = true;
-      resetTimer();
       handlePlayerAnswer(idx, btn);
     });
+    
     answersContainer.appendChild(btn);
   });
 
@@ -1956,22 +1966,19 @@ statusEl.textContent = Api.serverAvailable()
     if (left <= 0) {
       clearInterval(gameState.timerInterval);
       gameState.timerInterval = null;
+      if (!gameState.questionAnswered) {
+        gameState.questionAnswered = true;
+        handlePlayerAnswer(null, null, true);
+      }
     }
   }, 90);
-
-  gameState.timerTimeout = setTimeout(() => {
-    if (!gameState.isDuelActive) return;
-    if (!gameState.questionAnswered) {
-      gameState.questionAnswered = true;
-      handlePlayerAnswer(null, null, true);
-    }
-  }, total);
 
   // ★★★★ ДОБАВЬТЕ ЭТУ СТРОКУ - бот начинает думать над ответом ★★★★
   simulateOpponentAnswer(q);
 }
 
 async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
+  // Защита от повторного вызова
   if (gameState.questionAnswered) return;
   gameState.questionAnswered = true;
   resetTimer();
@@ -1980,17 +1987,9 @@ async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
   const correctIdx = q.correctIndex;
   const answersButtons = Array.from(document.querySelectorAll("#answers-container .answer-btn"));
 
-  // Показываем правильный ответ
-  answersButtons.forEach((b) => {
-    b.classList.add("disabled");
-    const idx = parseInt(b.dataset.index, 10);
-    if (idx === correctIdx) {
-      b.classList.add("correct");
-    }
-  });
-
   let playerCorrect = false;
 
+  // Обработка ответа игрока
   if (optionIndex !== null && optionIndex === correctIdx) {
     playerCorrect = true;
     gameState.playerScore++;
@@ -1999,7 +1998,19 @@ async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
   } else if (optionIndex !== null && optionIndex !== correctIdx) {
     if (btn) btn.classList.add("wrong");
     Sound.wrong();
+  } else if (isTimeout) {
+    // Таймаут - ответ неверный
+    Sound.wrong();
   }
+
+  // Показываем правильный ответ на всех кнопках
+  answersButtons.forEach((b) => {
+    b.classList.add("disabled");
+    const idx = parseInt(b.dataset.index, 10);
+    if (idx === correctIdx) {
+      b.classList.add("correct");
+    }
+  });
 
   $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
 
