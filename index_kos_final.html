@@ -1,0 +1,2328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>SIBUR QUIZ BATTLE · Production-ready Telegram Mini App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!--
+    ПРОД-ВЕРСИЯ ФРОНТЕНДА
+    ----------------------
+    Этот файл готов для:
+    • размещения на любом хостинге (в т.ч. GitHub Pages)
+    • подключения в Telegram Mini Apps
+    • работы с серверным API рейтинга/бейджей через /api/...
+
+    Что нужно донастроить бэкенду:
+    • GET  /api/profile/me
+    • POST /api/duels/finish
+    • GET  /api/leaderboard
+
+    При отсутствии бэкенда фронт работает в локальном демо-режиме (localStorage).
+  -->
+
+  <style>
+    :root {
+      --sibur-teal: #009CA6;
+      --sibur-teal-dark: #006D73;
+      --sibur-teal-soft: #E3F6F7;
+      --sibur-graphite: #00252B;
+      --sibur-accent-yellow: #F7C948;
+
+      --bg-main: #F3F7F8;
+      --card-bg: #FFFFFF;
+      --border-soft: #E2E8EA;
+      --danger: #D94747;
+      --success: #36A766;
+      --radius-lg: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top, #E2F5F6 0, #F7FAFB 55%, #EDF3F4 100%);
+      color: var(--sibur-graphite);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, #FFFFFF 0%, #F4FBFC 45%, #E7F3F5 100%);
+      border-radius: 28px;
+      box-shadow: 0 18px 46px rgba(0, 40, 50, 0.28);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header.app-header {
+      padding: 16px 20px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(135deg, var(--sibur-teal-dark), var(--sibur-teal));
+      color: white;
+    }
+
+    .header-logo {
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      font-size: 16px;
+    }
+
+    .header-badge {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    main {
+      flex: 1;
+      padding: 18px 18px 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .screen {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      height: 100%;
+      opacity: 0;
+      transform: translateY(8px) scale(0.99);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+    .screen.active {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .card {
+      background: rgba(255,255,255,0.98);
+      border-radius: var(--radius-lg);
+      padding: 16px 16px 14px;
+      box-shadow: 0 10px 28px rgba(0, 40, 50, 0.12);
+      border: 1px solid rgba(255,255,255,0.7);
+    }
+
+    .card-hero {
+      background: radial-gradient(circle at top left,
+      rgba(255,255,255,0.98),
+      rgba(227,246,247,0.98));
+      padding: 18px 18px 18px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 18px;
+      letter-spacing: 0.01em;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      opacity: 0.8;
+      margin-top: 4px;
+      line-height: 1.5;
+    }
+
+    .section-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .pill-inline {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.04);
+      font-size: 11px;
+    }
+
+    .btn {
+      position: relative;
+      overflow: hidden;
+      border-radius: 999px;
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 15px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      transition:
+        transform 0.09s ease,
+        box-shadow 0.09s ease,
+        background 0.12s ease,
+        filter 0.12s ease;
+    }
+    .btn::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.5), transparent 60%);
+      opacity: 0;
+      transition: opacity 0.18s ease;
+    }
+    .btn:active::after {
+      opacity: 1;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--sibur-teal), var(--sibur-teal-dark));
+      color: #fff;
+      box-shadow: 0 10px 24px rgba(0, 95, 110, 0.4);
+    }
+    .btn-primary:active {
+      transform: scale(0.97) translateY(1px);
+      box-shadow: 0 6px 18px rgba(0, 70, 80, 0.4);
+      filter: brightness(0.97);
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.96);
+      border: 1px solid var(--border-soft);
+      color: var(--sibur-teal-dark);
+      box-shadow: 0 4px 10px rgba(0, 40, 50, 0.08);
+    }
+    .btn-small {
+      padding-block: 8px;
+      font-size: 13px;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    
+    /* ---------- Экран загрузки ---------- */
+    .splash-wrapper {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: stretch;
+      height: 100%;
+      gap: 18px;
+    }
+    .splash-card {
+      border-radius: 28px;
+      padding: 32px 24px 28px;
+      background: linear-gradient(180deg, var(--sibur-teal-dark), var(--sibur-teal));
+      color: #ffffff;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      box-shadow: 0 18px 40px rgba(0, 60, 70, 0.45);
+    }
+    .splash-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 55%);
+      pointer-events: none;
+    }
+    .splash-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-top: 80px;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 1;
+    }
+    .splash-progress-outer {
+      width: 100%;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.12);
+      padding: 4px;
+      position: relative;
+      z-index: 1;
+    }
+    .splash-progress-inner {
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #6FFFC8, #E0FFF4);
+      color: #00434C;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      padding: 4px 0;
+      transition: width 0.2s ease-out;
+    }
+    .splash-hero {
+      margin-top: 32px;
+      position: relative;
+      z-index: 1;
+      max-width: 220px;
+    }
+    .splash-hero img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* ---------- Отсчёт перед дуэлью ---------- */
+    #screen-duel {
+      position: relative;
+    }
+    .duel-countdown-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 30;
+    }
+    .duel-countdown-overlay.visible {
+      display: flex;
+    }
+    .duel-countdown-pill {
+      min-width: 240px;
+      min-height: 90px;
+      padding: 22px 26px;
+      border-radius: 40px;
+      background: linear-gradient(135deg, var(--sibur-teal), var(--sibur-teal-dark));
+      color: #ffffff;
+      font-size: 40px;
+      font-weight: 700;
+      text-align: center;
+      box-shadow: 0 16px 40px rgba(0, 80, 90, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ---------- Баннер внизу дуэли ---------- */
+    .duel-banner {
+      margin-top: 14px;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(0, 40, 50, 0.25);
+    }
+    .duel-banner img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+.profile-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #FFFFFF, #E5F5F6);
+      border: 2px solid rgba(0,156,166,0.35);
+      box-shadow: 0 6px 16px rgba(0, 80, 90, 0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--sibur-teal-dark);
+      overflow: hidden;
+    }
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-meta {
+      font-size: 12px;
+      opacity: 0.7;
+    }
+
+    .stats-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(0, 156, 166, 0.15);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chip span.icon {
+      font-size: 14px;
+    }
+
+    .menu-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .menu-item {
+      border-radius: var(--radius-lg);
+      background: white;
+      padding: 10px 11px;
+      border: 1px solid rgba(0, 0, 0, 0.03);
+      box-shadow: 0 4px 10px rgba(0, 40, 50, 0.04);
+      cursor: pointer;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.1s ease;
+    }
+    .menu-item:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(0, 40, 50, 0.08);
+      background: rgba(255, 255, 255, 0.98);
+    }
+    .menu-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .menu-item-subtitle {
+      font-size: 11px;
+      opacity: 0.7;
+      line-height: 1.4;
+    }
+    .menu-pill {
+      font-size: 10px;
+      margin-top: 6px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(0, 156, 166, 0.08);
+      color: var(--sibur-teal-dark);
+      display: inline-block;
+    }
+
+    .footer-info {
+      text-align: center;
+      font-size: 11px;
+      opacity: 0.7;
+      line-height: 1.4;
+    }
+
+    .duel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    .versus-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .vs-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.7;
+    }
+
+    .score-chip {
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.04);
+    }
+
+    .timer-bar {
+      position: relative;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .timer-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--sibur-teal), var(--sibur-accent-yellow));
+      transform-origin: left;
+      transform: scaleX(1);
+      transition: transform 0.1s linear;
+    }
+
+    .question-text {
+      font-size: 17px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .question-meta {
+      font-size: 12px;
+      opacity: 0.7;
+      margin-bottom: 10px;
+    }
+
+    .answers {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .answer-btn {
+      width: 100%;
+      border-radius: 999px;
+      padding: 10px 13px;
+      border: 1px solid var(--border-soft);
+      background: rgba(255,255,255,0.96);
+      text-align: left;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      box-shadow: 0 4px 12px rgba(0, 40, 50, 0.06);
+      transition: background 0.1s ease, border-color 0.1s ease, transform 0.06s ease, box-shadow 0.06s ease;
+    }
+    .answer-btn span.index {
+      font-weight: 600;
+      font-size: 11px;
+      padding: 3px 6px;
+      border-radius: 999px;
+      background: rgba(0,156,166,0.12);
+      color: var(--sibur-teal-dark);
+      min-width: 20px;
+      text-align: center;
+    }
+    .answer-btn span.text {
+      flex: 1;
+    }
+    .answer-btn.correct {
+      background: rgba(54, 167, 102, 0.12);
+      border-color: rgba(54, 167, 102, 0.7);
+      animation: answer-pop 0.25s ease;
+    }
+    .answer-btn.wrong {
+      background: rgba(217, 71, 71, 0.10);
+      border-color: rgba(217, 71, 71, 0.75);
+      animation: answer-shake 0.25s ease;
+    }
+    .answer-btn.disabled {
+      opacity: 0.75;
+      cursor: default;
+    }
+
+    @keyframes answer-pop {
+      0% { transform: scale(0.98); }
+      60% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
+
+    @keyframes answer-shake {
+      0% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      50% { transform: translateX(3px); }
+      75% { transform: translateX(-2px); }
+      100% { transform: translateX(0); }
+    }
+
+    .small-label {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+
+    .result-main-score {
+      font-size: 32px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .result-status {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .result-delta {
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    .list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .list-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .badge-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .badge-card {
+      border-radius: var(--radius-lg);
+      padding: 9px 10px;
+      background: white;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+      box-shadow: 0 4px 10px rgba(0, 40, 50, 0.04);
+    }
+    .badge-pill {
+      font-size: 11px;
+      padding: 2px 6px;
+      border-radius: 999px;
+      background: rgba(0, 156, 166, 0.09);
+      align-self: flex-start;
+    }
+    .badge-card.locked {
+      opacity: 0.55;
+    }
+
+    .leader-header-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      opacity: 0.7;
+      margin-bottom: 6px;
+    }
+    .leader-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .leader-row {
+      display: grid;
+      grid-template-columns: 26px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(0,0,0,0.03);
+      box-shadow: 0 4px 10px rgba(0,40,50,0.06);
+    }
+    .leader-row.me {
+      background: rgba(0,156,166,0.11);
+      border-color: rgba(0,156,166,0.4);
+      font-weight: 600;
+    }
+    .leader-pos {
+      font-size: 12px;
+      opacity: 0.7;
+      text-align: center;
+    }
+    .leader-name {
+      display: flex;
+      flex-direction: column;
+    }
+    .leader-name-main {
+      font-size: 13px;
+    }
+    .leader-name-sub {
+      font-size: 11px;
+      opacity: 0.7;
+    }
+    .leader-score {
+      font-size: 13px;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    .overlay.active {
+      display: flex;
+    }
+    .overlay-card {
+      width: 100%;
+      max-width: 360px;
+      background: #FFFFFF;
+      border-radius: 20px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 18px 46px rgba(0,0,0,0.35);
+    }
+
+    @media (max-width: 520px) {
+      .app {
+        border-radius: 0;
+        max-width: none;
+        min-height: 100vh;
+      }
+      header.app-header {
+        border-radius: 0;
+      }
+    }
+	
+	.bottom-nav {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0;
+      width: 100%;
+      max-width: 480px;
+      padding: 8px 14px 12px;
+      background: rgba(255,255,255,0.98);
+      box-shadow: 0 -10px 26px rgba(0, 40, 50, 0.25);
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      z-index: 30;
+      border-radius: 22px 22px 0 0;
+    }
+    .bottom-nav-btn {
+      flex: 1;
+      border-radius: 999px;
+      border: none;
+      background: transparent;
+      padding: 6px 4px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: rgba(0,37,43,0.7);
+      cursor: pointer;
+      transition: background 0.18s ease, transform 0.08s ease, color 0.18s ease;
+    }
+    .bottom-nav-btn-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      background: rgba(0, 37, 43, 0.04);
+    }
+    .bottom-nav-btn-label {
+      line-height: 1;
+    }
+    .bottom-nav-btn.active {
+      background: var(--sibur-teal-soft);
+      color: var(--sibur-teal-dark);
+    }
+    .bottom-nav-btn.active .bottom-nav-btn-icon {
+      background: var(--sibur-teal);
+      color: #ffffff;
+    }
+    .bottom-nav-btn:active {
+      transform: translateY(1px) scale(0.97);
+    }
+	
+	.home-duel-card .home-duel-inner {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .home-duel-image img {
+      display: block;
+      width: 110px;
+      height: auto;
+      border-radius: 18px;
+    }
+
+    .home-duel-title {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .home-duel-rules {
+      padding-left: 18px;
+      margin: 0;
+      list-style: disc;
+      font-size: 13px;
+      line-height: 1.5;
+      opacity: 0.9;
+    }
+
+    .home-duel-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .home-banner {
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 12px 28px rgba(0, 40, 50, 0.25);
+    }
+
+    .home-banner img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+.profile-row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #FFFFFF, #E5F5F6);
+      border: 2px solid rgba(0,156,166,0.35);
+      box-shadow: 0 6px 16px rgba(0, 80, 90, 0.28);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--sibur-teal-dark);
+      overflow: hidden;
+    }
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+	
+	    .home-level-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      gap: 10px;
+      font-size: 13px;
+    }
+
+    .home-level-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(0, 156, 166, 0.06);
+      color: var(--sibur-graphite);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .home-level-pill .icon {
+      font-size: 16px;
+    }
+
+    .home-level-pill.active {
+      background: rgba(0, 156, 166, 0.16);
+      font-weight: 600;
+    }
+
+    .home-level-progress-bar {
+      margin-top: 10px;
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--sibur-teal-soft);
+      overflow: hidden;
+    }
+
+    .home-level-progress-fill {
+      height: 100%;
+      width: 30%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--sibur-teal-dark), var(--sibur-teal));
+      transition: width 0.25s ease-out;
+    }
+
+	
+  </style>
+</head>
+<body>
+<!-- Overlay поиска соперника -->
+<div class="overlay" id="match-overlay">
+  <div class="overlay-card">
+    <div style="font-weight:700;font-size:16px;margin-bottom:6px;">
+      Ищем соперника…
+    </div>
+    <div id="match-status" style="font-size:13px;opacity:0.8;margin-bottom:12px;">
+      Смотрим, кто сейчас в игре
+    </div>
+    <div id="match-timer"
+         style="font-size:32px;font-weight:800;margin-bottom:12px;text-align:center;">
+      30
+    </div>
+    <button class="btn btn-secondary btn-small" id="btn-match-cancel">
+      Отмена
+    </button>
+  </div>
+</div>
+
+<div class="app">
+  <header class="app-header">
+    <div class="header-logo"></div>
+    <div class="header-badge"></div>
+  </header>
+
+  <main>
+    <!-- Splash -->
+    <!-- Экран загрузки: показывается всегда при открытии -->
+    <section class="screen active" id="screen-loading">
+      <div class="splash-wrapper">
+        <div class="splash-card">
+          <div class="splash-title">Квиз-дуэль «Казаньоргсинтеза»</div>
+          <div class="splash-progress-outer">
+            <div class="splash-progress-inner" id="loading-progress-bar">0%</div>
+          </div>
+          <div class="splash-hero">
+            <!-- Картинка с трубами. Файл назови: splash-hero.png -->
+            <img src="splash-hero.png" alt="Иллюстрация завода" />
+          </div>
+        </div>
+        <div class="footer-info" id="splash-footer">
+          Статус: подключение к серверу не проверено.
+        </div>
+      </div>
+    </section>
+
+<!-- Main menu -->
+    <section class="screen" id="screen-main">
+      <div class="home-top-gradient"></div>
+
+      <div class="home-main-wrap">
+        <div class="card home-profile-card">
+          <div class="home-profile-row">
+            <div class="avatar" id="player-avatar">S</div>
+            <div>
+              <div id="player-name" class="home-player-name">Сотрудник СИБУР</div>
+              <div class="home-player-meta" id="player-meta">Рейтинг: 100 · Дуэлей: 0</div>
+            </div>
+          </div>
+
+          <div class="home-level-row">
+            <div class="home-level-pill active" id="home-level-start">
+              <span class="icon">🏅</span><span>Новичок</span>
+            </div>
+            <div class="home-level-pill" id="home-level-end">
+              <span class="icon">🏅</span><span>Эксперт</span>
+            </div>
+          </div>
+
+          <div class="home-level-progress-bar">
+            <div class="home-level-progress-fill" id="home-level-progress"></div>
+          </div>
+
+          <!-- Скрытые элементы для совместимости с существующим JS -->
+          <div style="display:none;">
+            <span id="player-rating-label"></span>
+            <span id="player-battles-label"></span>
+          </div>
+        </div>
+
+        <div class="card home-duel-card">
+          <div class="home-duel-inner">
+            <div class="home-duel-image">
+              <!-- Картинка с персонажем, назови файл: home-duel-worker.png -->
+              <img src="home-duel-worker.png" alt="Сотрудник на производстве" />
+            </div>
+            <div class="home-duel-text">
+              <div class="home-duel-title">
+                Играй в дуэль на знание «Казаньоргсинтеза» со случайным коллегой
+              </div>
+              <ul class="home-duel-rules">
+                <li>ответь правильно быстрее соперника на 5 вопросов о КОСе</li>
+                <li>выигрывай дуэль и повышай рейтинг</li>
+                <li>получай новый мерч «Казаньоргсинтеза»</li>
+              </ul>
+            </div>
+          </div>
+          <div class="home-duel-buttons">
+            <button class="btn btn-primary" id="btn-play-quick">Играть дуэль</button>
+            <button class="btn btn-secondary btn-small" id="btn-play-bot">Тренировка с ИИ-соперником</button>
+          </div>
+        </div>
+
+        <div class="home-banner">
+          <!-- Большая картинка с установкой, назови файл: home-main-plant.png -->
+          <img src="home-main-plant.png" alt="Завод Казаньоргсинтез" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Duel screen -->
+    <section class="screen" id="screen-duel">
+      <div class="card">
+        <div class="duel-header">
+          <span class="small-label" id="duel-mode-label">Режим: Быстрая дуэль</span>
+          <span class="small-label" id="duel-progress-label">Вопрос 1 / 5</span>
+        </div>
+
+        <div class="versus-row">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="avatar" style="width:34px;height:34px;font-size:14px;" id="duel-player-avatar">P</div>
+            <div style="font-size:12px;">
+              <div id="duel-player-name" style="font-weight:600;">Вы</div>
+              <div style="opacity:0.7;">Рейтинг: <span id="duel-player-rating">100</span></div>
+            </div>
+          </div>
+          <div style="text-align:center;">
+            <div class="vs-label">Дуэль</div>
+            <div class="score-chip" id="duel-score-label">0 : 0</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;justify-content:flex-end;">
+            <div style="font-size:12px;text-align:right;">
+              <div id="duel-opponent-name" style="font-weight:600;">Соперник</div>
+              <div style="opacity:0.7;">Рейтинг: <span id="duel-opponent-rating">100</span></div>
+            </div>
+            <div class="avatar" style="width:34px;height:34px;font-size:14px;background:linear-gradient(135deg,#ffffff,#FFE1B2);border-color:rgba(249,180,59,0.5);" id="duel-opponent-avatar">
+              R
+            </div>
+          </div>
+        </div>
+
+        <div class="timer-bar">
+          <div class="timer-fill" id="timer-fill"></div>
+        </div>
+
+        <div class="question-text" id="question-text">Вопрос появится здесь.</div>
+        <div class="question-meta" id="question-meta">Категория: —</div>
+
+        <div class="answers" id="answers-container"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Подсказка</div>
+        <p style="font-size:12px;opacity:0.8;" id="duel-hint">
+  Соперник может быть реальным коллегой или бот — в зависимости от того, кто сейчас в игре.
+</p>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-secondary btn-small" id="btn-duel-exit">Выйти</button>
+        <button class="btn btn-small" id="btn-duel-skip">Завершить раунд</button>
+      </div>
+          <div class="duel-countdown-overlay" id="duel-countdown-overlay">
+        <div class="duel-countdown-pill" id="duel-countdown-pill">3</div>
+      </div>
+
+      <div class="duel-banner">
+        <!-- Картинка внизу дуэли. Назови файл: duel-bottom-banner.png -->
+        <img src="duel-bottom-banner.png" alt="Баннер дуэли" />
+      </div>
+    </section>
+
+
+    <!-- Result screen -->
+    <section class="screen" id="screen-result">
+      <div class="card card-hero">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Результат дуэли</div>
+            <div class="card-subtitle" id="result-subtitle">
+              Хорошая игра! С каждой дуэлью вы лучше знаете компанию.
+            </div>
+          </div>
+          <div class="pill-inline" id="result-mode-pill">Быстрая дуэль</div>
+        </div>
+
+        <div style="margin-top:10px;">
+          <div class="result-main-score" id="result-score">3 : 2</div>
+          <div class="result-status" id="result-status-label">Победа 🎉</div>
+          <div class="result-delta" id="result-delta-label">Рейтинг: +15 · Дуэлей: +1</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Прогресс</div>
+        <div class="list">
+          <div class="list-item">
+            <span>Текущий рейтинг</span>
+            <span class="pill-inline">🏅 <span id="result-rating-value">115</span></span>
+          </div>
+          <div class="list-item">
+            <span>Всего дуэлей</span>
+            <span class="pill-inline">⚔️ <span id="result-battles-value">1</span></span>
+          </div>
+          <div class="list-item">
+            <span>Победы / поражения</span>
+            <span class="pill-inline">🎯 <span id="result-wl-value">1 / 0 / 0</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-result-again">Сыграть ещё дуэль</button>
+        <button class="btn btn-secondary" id="btn-result-main">В главное меню</button>
+      </div>
+    </section>
+
+    <!-- Badges screen -->
+    <section class="screen" id="screen-badges">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Бейджи ценностей</div>
+            <div class="card-subtitle">Список бейджей и условия открытия. В проде выдаются сервером.</div>
+          </div>
+          <div class="pill-inline">
+            ⭐ <span id="badges-count-label">0 из 5</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="badge-grid" id="badge-grid"></div>
+      </div>
+
+      <button class="btn btn-secondary" id="btn-badges-back">Назад в меню</button>
+    </section>
+
+    <!-- Leaderboard screen -->
+    <section class="screen" id="screen-leaderboard">
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Рейтинг участников</div>
+            <div class="card-subtitle">
+              В проде — реальный лидерборд по сотрудникам. Здесь — демо или данные с сервера, если он доступен.
+            </div>
+          </div>
+          <div class="pill-inline">
+            🏆 <span id="leaderboard-me-rating">Рейтинг: 100</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="leader-header-row">
+          <span>Место</span>
+          <span>Имя</span>
+          <span>Рейтинг</span>
+        </div>
+        <div class="leader-list" id="leaderboard-list"></div>
+      </div>
+
+      <button class="btn btn-secondary" id="btn-leaderboard-back">Назад в меню</button>
+    </section>
+  </main>
+</div>
+
+<nav class="bottom-nav">
+    <button class="bottom-nav-btn active" data-tab="home">
+      <div class="bottom-nav-btn-icon">🏠</div>
+      <div class="bottom-nav-btn-label">Главная</div>
+    </button>
+    <button class="bottom-nav-btn" data-tab="badges">
+      <div class="bottom-nav-btn-icon">⭐</div>
+      <div class="bottom-nav-btn-label">Бейджи</div>
+    </button>
+    <button class="bottom-nav-btn" data-tab="game">
+      <div class="bottom-nav-btn-icon">🎮</div>
+      <div class="bottom-nav-btn-label">Дуэль</div>
+    </button>
+    <button class="bottom-nav-btn" data-tab="rating">
+      <div class="bottom-nav-btn-icon">🏆</div>
+      <div class="bottom-nav-btn-label">Рейтинг</div>
+    </button>
+    <button class="bottom-nav-btn" data-tab="profile">
+      <div class="bottom-nav-btn-icon">👤</div>
+      <div class="bottom-nav-btn-label">Профиль</div>
+    </button>
+  </nav>
+  
+<!-- overlay: ввод имени -->
+<div class="overlay" id="name-overlay">
+  <div class="overlay-card">
+    <div class="section-title">Как к вам обращаться?</div>
+    <p style="font-size:13px;opacity:0.8;margin-bottom:8px;">
+      Мы используем Telegram-аккаунт для идентификации, а имя в игре вы можете указать так,
+      как хотите, чтобы оно отображалось в рейтинге.
+    </p>
+    <input id="name-input" type="text" placeholder="Имя и фамилия"
+           style="width:100%;padding:9px 10px;border-radius:999px;border:1px solid var(--border-soft);font-size:14px;outline:none;margin-bottom:8px;">
+    <button class="btn btn-primary btn-small" id="btn-name-save">Сохранить</button>
+  </div>
+</div>
+
+<script>
+  // ---------- ВОПРОСЫ ----------
+  const questionBank = [
+    {
+      text: "Какая ценность СИБУРа означает приоритет предотвращения инцидентов и охраны труда?",
+      category: "Безопасность",
+      options: [
+        "Эффективность и экономия ресурсов",
+        "Безопасность и ответственность",
+        "Командная работа",
+        "Клиентский сервис"
+      ],
+      correctIndex: 1
+    },
+    {
+      text: "Что из перечисленного лучше всего отражает курс СИБУРа на устойчивое развитие?",
+      category: "Экология и устойчивость",
+      options: [
+        "Увеличение объёмов любых видов производства",
+        "Отказ от цифровизации",
+        "Переработка полимеров и снижение выбросов",
+        "Сокращение обучения сотрудников"
+      ],
+      correctIndex: 2
+    },
+    {
+      text: "Что в большей степени соответствует инновациям на производстве?",
+      category: "Инновации",
+      options: [
+        "Сохранение всех процессов без изменений",
+        "Использование современных цифровых систем мониторинга",
+        "Запрет на предложения по улучшениям",
+        "Сокрытие инцидентов"
+      ],
+      correctIndex: 1
+    },
+    {
+      text: "Что является примером командной работы на предприятии?",
+      category: "Командность",
+      options: [
+        "Игнорирование обратной связи коллег",
+        "Совместное решение проблем между цехами",
+        "Сокрытие информации",
+        "Работа только по принципу «моя смена — мои задачи»"
+      ],
+      correctIndex: 1
+    },
+        {
+      text: "Вы заметили нарушение техники безопасности. Что вы сделаете?",
+      category: "Безопасность",
+      options: [
+        "Сделать фото для соцсетей",
+        "Самостоятельно устранить, нарушая инструкции",
+        "Сообщить по установленному каналу и принять безопасные меры",
+        "Ничего не делать, инциденты — норма"
+      ],
+      correctIndex: 2
+    },
+    {
+      text: "Какой подход помогает снижать отходы производства?",
+      category: "Экология и устойчивость",
+      options: [
+        "Игнорирование возможностей переработки",
+        "Системная работа по повторному использованию и переработке",
+        "Увеличение объёма упаковки",
+        "Отказ от учёта отходов"
+      ],
+      correctIndex: 1
+    },
+    {
+      text: "Что чаще всего помогает находить инновации на рабочем месте?",
+      category: "Инновации",
+      options: [
+        "Обмен идеями и подача предложений по улучшениям",
+        "Запрет на обсуждение новых идей",
+        "Ожидание изменений только «сверху»",
+        "Изоляция подразделений друг от друга"
+      ],
+      correctIndex: 0
+    }
+  ];
+
+  const badgesConfig = [
+    {
+      id: "rookie",
+      title: "Новичок ценностей",
+      description: "Достигните рейтинга 120 и сыграйте 3 дуэли.",
+      condition: (p) => p.rating >= 120 && p.battles >= 3
+    },
+    {
+      id: "safety",
+      title: "Знаток безопасности",
+      description: "Ответьте правильно минимум в 5 вопросах по безопасности.",
+      condition: (p) => p.stats.safetyCorrect >= 5
+    },
+    {
+      id: "eco",
+      title: "Эко-герой",
+      description: "Ответьте правильно минимум в 5 вопросах по экологии.",
+      condition: (p) => p.stats.ecoCorrect >= 5
+    },
+    {
+      id: "innovator",
+      title: "Инноватор",
+      description: "Ответьте правильно минимум в 5 вопросах по инновациям.",
+      condition: (p) => p.stats.innovationCorrect >= 5
+    },
+    {
+      id: "duelist",
+      title: "Мастер дуэлей",
+      description: "Выиграйте 10 дуэлей.",
+      condition: (p) => p.wins >= 10
+    }
+  ];
+
+  const sampleOpponents = [
+    { name: "Ирина, лаборатория", rating: 130, initials: "ИР" },
+    { name: "Андрей, производство", rating: 145, initials: "АП" },
+    { name: "Сергей, цифровизация", rating: 160, initials: "СЦ" },
+    { name: "Мария, экология", rating: 155, initials: "МЭ" }
+  ];
+
+  const demoLeaderboard = [
+    { name: "Антон, производство", rating: 180, battles: 14, wins: 9 },
+    { name: "Марина, финансы",     rating: 165, battles: 11, wins: 7 },
+    { name: "Игорь, безопасность", rating: 150, battles: 9,  wins: 6 },
+    { name: "Ольга, HR",           rating: 135, battles: 6,  wins: 3 },
+    { name: "Дмитрий, ИТ",         rating: 120, battles: 5,  wins: 3 }
+  ];
+
+  // ---------- ЗВУКИ (Web Audio) ----------
+  const Sound = (() => {
+    let ctx = null;
+    let unlocked = false;
+
+    function ensureContext() {
+      if (!ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        ctx = new AC();
+      }
+      if (ctx.state === "suspended") ctx.resume();
+      unlocked = true;
+      return ctx;
+    }
+
+    function beep(freq, duration, type = "sine", volume = 0.12) {
+      const audioCtx = ensureContext();
+      if (!audioCtx || !unlocked) return;
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(volume, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + duration + 0.02);
+    }
+
+    return {
+      unlock() { ensureContext(); },
+      correct() { beep(880, 0.12, "triangle", 0.18); },
+      wrong() { beep(220, 0.18, "sawtooth", 0.22); },
+      tick() { beep(1300, 0.05, "square", 0.12); },
+      finishWin() { beep(1040, 0.16, "triangle", 0.2); setTimeout(() => beep(1320,0.18,"triangle",0.18),120); },
+      finishLose() { beep(260,0.18,"sine",0.18); }
+    };
+  })();
+
+  // ---------- API-ОБЁРТКА ----------
+  const Api = (() => {
+    let serverAvailable = false;
+
+    async function checkServer() {
+      try {
+        const res = await fetch("/api/profile/me", { method: "GET", credentials: "include" });
+        if (!res.ok) throw new Error("status " + res.status);
+        serverAvailable = true;
+        return true;
+      } catch (e) {
+        serverAvailable = false;
+        console.warn("API not available, using local demo mode", e);
+        return false;
+      }
+    }
+
+    async function getProfile(localPlayer) {
+      if (!serverAvailable) return null;
+      try {
+        const res = await fetch("/api/profile/me", { credentials: "include" });
+        if (!res.ok) throw new Error("status " + res.status);
+        return await res.json();
+      } catch (e) {
+        console.warn("getProfile failed, fallback to local", e);
+        return null;
+      }
+    }
+
+    async function finishDuel(payload) {
+      if (!serverAvailable) return null;
+      try {
+        const res = await fetch("/api/duels/finish", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error("status " + res.status);
+        return await res.json();
+      } catch (e) {
+        console.warn("finishDuel failed, fallback to local", e);
+        return null;
+      }
+    }
+
+    async function getLeaderboard() {
+      if (!serverAvailable) return null;
+      try {
+        const res = await fetch("/api/leaderboard?limit=50", { credentials: "include" });
+        if (!res.ok) throw new Error("status " + res.status);
+        return await res.json();
+      } catch (e) {
+        console.warn("getLeaderboard failed, fallback to demo", e);
+        return null;
+      }
+    }
+
+    async function findOpponent(mode) {
+  if (!serverAvailable) return null;
+  try {
+    const res = await fetch("/api/duels/find-opponent?mode=" + encodeURIComponent(mode), {
+      credentials: "include"
+    });
+    if (!res.ok) throw new Error("status " + res.status);
+    return await res.json(); // ожидаем { opponent: { name, rating?, initials? } } или null
+  } catch (e) {
+    console.warn("findOpponent failed, fallback to bot", e);
+    return null;
+  }
+}
+
+return {
+  serverAvailable: () => serverAvailable,
+  checkServer,
+  getProfile,
+  finishDuel,
+  getLeaderboard,
+  findOpponent
+    };
+  })();
+
+  // ---------- СОСТОЯНИЕ ИГРОКА ----------
+  let player = {
+    tgId: null,
+    name: "Сотрудник СИБУР",
+    avatarUrl: null,
+    rating: 100,
+    battles: 0,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    stats: {
+      safetyCorrect: 0,
+      ecoCorrect: 0,
+      innovationCorrect: 0
+    },
+    badges: []
+  };
+
+  let gameState = {
+  mode: "quick",
+  opponent: null,
+  questions: [],
+  currentQuestionIndex: 0,
+  playerScore: 0,
+  opponentScore: 0,
+  timerInterval: null,
+  timerTimeout: null,
+  timerTotalMs: 10000,
+  questionAnswered: false,
+  isDuelActive: false // флаг: игрок сейчас в экране дуэли
+};
+
+const MATCH_SEARCH_SECONDS = 30;
+
+const matchmakingState = {
+  active: false,
+  timeoutId: null,
+  intervalId: null
+};
+
+function stopMatchmaking() {
+  matchmakingState.active = false;
+
+  if (matchmakingState.timeoutId) {
+    clearTimeout(matchmakingState.timeoutId);
+    matchmakingState.timeoutId = null;
+  }
+  if (matchmakingState.intervalId) {
+    clearInterval(matchmakingState.intervalId);
+    matchmakingState.intervalId = null;
+  }
+
+  const overlay = $("match-overlay");
+  if (overlay) overlay.classList.remove("active");
+}
+
+  function $(id) { return document.getElementById(id); }
+
+  function initialsFromName(name) {
+    if (!name) return "S";
+    const parts = name.split(" ").filter(Boolean);
+    if (parts.length === 0) return name[0].toUpperCase();
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  function ratingLabel(rating) {
+    if (rating < 120) return "Новичок";
+    if (rating < 150) return "Участник";
+    if (rating < 200) return "Сильный игрок";
+    if (rating < 250) return "Эксперт";
+    return "Легенда";
+  }
+
+  function battlesLabel(battles) {
+    if (battles === 0) return "0 дуэлей";
+    if (battles === 1) return "1 дуэль";
+    if (battles < 5) return battles + " дуэли";
+    return battles + " дуэлей";
+  }
+
+  function switchScreen(id) {
+    document.querySelectorAll(".screen").forEach(el => {
+      el.classList.toggle("active", el.id === id);
+    });
+  }
+
+  function shuffle(array) {
+    const arr = array.slice();
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function storageKey() {
+    return player.tgId ? "sibur_quiz_player_" + player.tgId : "sibur_quiz_demo_player";
+  }
+
+  function savePlayerLocal() {
+    try {
+      localStorage.setItem(storageKey(), JSON.stringify(player));
+    } catch (e) {}
+  }
+
+
+function updateBadgesFromPlayer() {
+  const unlockedIds = [];
+  badgesConfig.forEach(b => {
+    if (b.condition(player)) unlockedIds.push(b.id);
+  });
+  player.badges = unlockedIds;
+}
+
+  function loadPlayerLocal(tgId) {
+    let raw = null;
+    if (tgId) {
+      raw = localStorage.getItem("sibur_quiz_player_" + tgId);
+    }
+    if (!raw) {
+      raw = localStorage.getItem("sibur_quiz_demo_player");
+    }
+    if (!raw) return;
+    try {
+      const data = JSON.parse(raw);
+      player = Object.assign(player, data);
+    } catch (e) {}
+  }
+
+function updateMainScreen() {
+  $("player-name").textContent = player.name;
+
+  const avatarEl = $("player-avatar");
+  avatarEl.innerHTML = "";
+  if (player.avatarUrl) {
+    const img = document.createElement("img");
+    img.src = player.avatarUrl;
+    avatarEl.appendChild(img);
+  } else {
+    avatarEl.textContent = initialsFromName(player.name);
+  }
+
+  // строка под ником
+  $("player-meta").textContent = `Рейтинг: ${player.rating} · Дуэлей: ${player.battles}`;
+
+  // старые подписи — оставляем на всякий случай
+  const ratingLabelEl = $("player-rating-label");
+  const battlesLabelEl = $("player-battles-label");
+  if (ratingLabelEl) ratingLabelEl.textContent = ratingLabel(player.rating);
+  if (battlesLabelEl) battlesLabelEl.textContent = battlesLabel(player.battles);
+
+  // прогресс от "Новичок" к "Эксперт"
+  const progressEl = $("home-level-progress");
+  if (progressEl) {
+    const min = 0;
+    const max = 250;
+    const value = Math.max(min, Math.min(max, player.rating));
+    const ratio = (value - min) / (max - min || 1);
+    const width = 10 + ratio * 90; // от 10% до 100%
+    progressEl.style.width = width + "%";
+  }
+
+  // какая плашка активна — Новичок или Эксперт
+  const startPill = $("home-level-start");
+  const endPill = $("home-level-end");
+  if (startPill && endPill) {
+    const isExpert = player.rating >= 150;
+    startPill.classList.toggle("active", !isExpert);
+    endPill.classList.toggle("active", isExpert);
+  }
+}
+  function updateBadgesFromPlayer() {
+    const unlockedIds = [];
+    badgesConfig.forEach(b => {
+      if (b.condition(player)) unlockedIds.push(b.id);
+    });
+    player.badges = unlockedIds;
+  }
+
+  function renderBadges() {
+    updateBadgesFromPlayer();
+    const container = $("badge-grid");
+    container.innerHTML = "";
+    const unlockedSet = new Set(player.badges);
+    badgesConfig.forEach(badge => {
+      const card = document.createElement("div");
+      const unlocked = unlockedSet.has(badge.id);
+      card.className = "badge-card" + (unlocked ? "" : " locked");
+
+      const title = document.createElement("div");
+      title.textContent = badge.title;
+      title.style.fontWeight = "600";
+      card.appendChild(title);
+
+      const desc = document.createElement("div");
+      desc.textContent = badge.description;
+      desc.style.fontSize = "11px";
+      desc.style.opacity = "0.8";
+      card.appendChild(desc);
+
+      const pill = document.createElement("div");
+      pill.className = "badge-pill";
+      pill.textContent = unlocked ? "Открыто" : "Пока закрыто";
+      card.appendChild(pill);
+
+      container.appendChild(card);
+    });
+
+    $("badges-count-label").textContent = `${player.badges.length} из ${badgesConfig.length}`;
+  }
+
+  function renderLeaderboard(serverData) {
+    const container = $("leaderboard-list");
+    container.innerHTML = "";
+
+    let players;
+    if (serverData && serverData.items) {
+      players = serverData.items.slice();
+    } else {
+      players = demoLeaderboard.map(p => ({ ...p }));
+      players.push({
+        name: player.name + " (вы)",
+        rating: player.rating,
+        battles: player.battles,
+        wins: player.wins
+      });
+      players.sort((a, b) => b.rating - a.rating);
+    }
+
+    players.forEach((p, idx) => {
+      const row = document.createElement("div");
+      const isMe = p.name.includes("(вы)") || (serverData && serverData.me && serverData.me.position === idx + 1);
+      row.className = "leader-row" + (isMe ? " me" : "");
+
+      const pos = document.createElement("div");
+      pos.className = "leader-pos";
+      pos.textContent = serverData && p.position ? p.position : (idx + 1);
+      row.appendChild(pos);
+
+      const nameCol = document.createElement("div");
+      nameCol.className = "leader-name";
+      const main = document.createElement("div");
+      main.className = "leader-name-main";
+      main.textContent = p.name;
+      const sub = document.createElement("div");
+      sub.className = "leader-name-sub";
+      sub.textContent = `Дуэлей: ${p.battles || 0}, побед: ${p.wins || 0}`;
+      nameCol.appendChild(main);
+      nameCol.appendChild(sub);
+      row.appendChild(nameCol);
+
+      const score = document.createElement("div");
+      score.className = "leader-score";
+      score.textContent = p.rating;
+      row.appendChild(score);
+
+      container.appendChild(row);
+    });
+
+    $("leaderboard-me-rating").textContent = `Рейтинг: ${player.rating}`;
+  }
+
+  function resetTimer() {
+    if (gameState.timerInterval) {
+      clearInterval(gameState.timerInterval);
+      gameState.timerInterval = null;
+    }
+    if (gameState.timerTimeout) {
+      clearTimeout(gameState.timerTimeout);
+      gameState.timerTimeout = null;
+    }
+  }
+
+  function prepareDuel(mode, opponentOverride) {
+  gameState.mode = mode;
+  gameState.questions = shuffle(questionBank).slice(0, 5);
+  gameState.currentQuestionIndex = 0;
+  gameState.playerScore = 0;
+  gameState.opponentScore = 0;
+  gameState.questionAnswered = false;
+
+  let opponentData = opponentOverride;
+  if (!opponentData) {
+    opponentData = sampleOpponents[Math.floor(Math.random() * sampleOpponents.length)];
+  }
+
+  gameState.opponent = {
+    name: opponentData.name,
+    rating: typeof opponentData.rating === "number" ? opponentData.rating : 140,
+    initials: opponentData.initials || initialsFromName(opponentData.name),
+    isReal: !!opponentData.isReal
+  };
+
+  $("duel-mode-label").textContent =
+    mode === "bot" ? "Режим: Тренировка с ИИ-соперником" : "Режим: Быстрая дуэль";
+
+  $("duel-player-name").textContent = "Вы";
+  $("duel-player-rating").textContent = player.rating;
+
+  const playerAvatar = $("duel-player-avatar");
+  if (playerAvatar) {
+    playerAvatar.innerHTML = "";
+    if (player.avatarUrl) {
+      const img = document.createElement("img");
+      img.src = player.avatarUrl;
+      playerAvatar.appendChild(img);
+    } else {
+      playerAvatar.textContent = initialsFromName(player.name);
+    }
+  }
+
+  $("duel-opponent-name").textContent = gameState.opponent.name;
+  $("duel-opponent-rating").textContent = gameState.opponent.rating;
+  $("duel-opponent-avatar").textContent = gameState.opponent.initials;
+  $("duel-score-label").textContent = "0 : 0";
+
+  const hint = $("duel-hint");
+  if (hint) {
+    if (gameState.opponent.isReal) {
+      hint.textContent = "Сейчас вы играете с реальным коллегой, который тоже в мини-приложении.";
+    } else if (mode === "bot") {
+      hint.textContent = "Сейчас вы играете с тренировочным ИИ-соперником. Рейтинг изменяется мягче.";
+    } else {
+      hint.textContent = "Если среди коллег никого нет, дуэль играет ИИ-соперник, чтобы вы не ждали.";
+    }
+  }
+}
+
+async function startDuel(mode, opponentOverride = null) {
+gameState.isDuelActive = true;
+  resetTimer();
+
+  gameState.playerScore = 0;
+  gameState.opponentScore = 0;
+  gameState.currentQuestionIndex = 0;
+  gameState.questionAnswered = false;
+
+  prepareDuel(mode, opponentOverride);
+
+  switchScreen("screen-duel");
+
+  const countdownOverlay = $("duel-countdown-overlay");
+  const countdownPill = $("duel-countdown-pill");
+
+  if (countdownOverlay && countdownPill) {
+    let n = 3;
+    countdownOverlay.classList.add("visible");
+    countdownPill.textContent = n;
+
+    const interval = setInterval(() => {
+      n--;
+      if (n <= 0) {
+        clearInterval(interval);
+        countdownOverlay.classList.remove("visible");
+        showQuestion();
+      } else {
+        countdownPill.textContent = n;
+      }
+    }, 700);
+  } else {
+    showQuestion();
+  }
+}
+function startMatchmaking(mode) {
+  if (matchmakingState.active) return;
+
+  matchmakingState.active = true;
+
+  const overlay = $("match-overlay");
+  const timerEl = $("match-timer");
+  const statusEl = $("match-status");
+
+  let secondsLeft = MATCH_SEARCH_SECONDS;
+
+  if (timerEl) timerEl.textContent = String(secondsLeft);
+  if (statusEl) statusEl.textContent = "Ищем соперника среди коллег, которые сейчас в игре…";
+  if (overlay) overlay.classList.add("active");
+
+  matchmakingState.intervalId = setInterval(() => {
+    if (!matchmakingState.active) return;
+    secondsLeft -= 1;
+    if (secondsLeft < 0) secondsLeft = 0;
+    if (timerEl) timerEl.textContent = String(secondsLeft);
+  }, 1000);
+
+  matchmakingState.timeoutId = setTimeout(() => {
+    if (!matchmakingState.active) return;
+    stopMatchmaking();
+    startDuel(mode); // соперник-бот
+  }, MATCH_SEARCH_SECONDS * 1000);
+
+  if (Api.serverAvailable() && typeof Api.findOpponent === "function") {
+    Api.findOpponent(mode)
+      .then((res) => {
+        if (!matchmakingState.active || !res || !res.opponent) return;
+
+        stopMatchmaking();
+
+        const oppRaw = res.opponent;
+        const opponent = {
+          name: oppRaw.name || "Коллега",
+          rating: typeof oppRaw.rating === "number" ? oppRaw.rating : 140,
+          initials: oppRaw.initials || initialsFromName(oppRaw.name || "K"),
+          isReal: true
+        };
+
+        startDuel(mode, opponent);
+      })
+      .catch(() => {
+        // На ошибке просто ждём 30 сек и уходим в бота
+      });
+  }
+}
+  function showQuestion() {
+  resetTimer();
+
+  const q = gameState.questions[gameState.currentQuestionIndex];
+  if (!q) return;
+
+  $("duel-progress-label").textContent =
+    `Вопрос ${gameState.currentQuestionIndex + 1} / ${gameState.questions.length}`;
+  $("question-text").textContent = q.text;
+  $("question-meta").textContent = "Категория: " + q.category;
+  $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
+
+  const answersContainer = $("answers-container");
+  answersContainer.innerHTML = "";
+  gameState.questionAnswered = false;
+
+  q.options.forEach((opt, idx) => {
+    const btn = document.createElement("button");
+    btn.className = "btn answer-btn";
+    btn.textContent = opt;
+    btn.dataset.index = String(idx);
+    btn.addEventListener("click", () => {
+      if (gameState.questionAnswered) return;
+      gameState.questionAnswered = true;
+      resetTimer();
+      handlePlayerAnswer(idx, btn);
+    });
+    answersContainer.appendChild(btn);
+  });
+
+  const timerFill = $("timer-fill");
+  timerFill.style.width = "100%";
+
+  const total = gameState.timerTotalMs;
+  const startedAt = Date.now();
+
+  // Тик и анимация только пока дуэль активна
+  gameState.timerInterval = setInterval(() => {
+    if (!gameState.isDuelActive) {
+      clearInterval(gameState.timerInterval);
+      gameState.timerInterval = null;
+      return;
+    }
+
+    const elapsed = Date.now() - startedAt;
+    const left = Math.max(0, total - elapsed);
+    const percent = (left / total) * 100;
+    timerFill.style.width = percent + "%";
+
+    if (left <= 1000 && left > 0) {
+      Sound.tick();
+    }
+
+    if (left <= 0) {
+      clearInterval(gameState.timerInterval);
+      gameState.timerInterval = null;
+    }
+  }, 90);
+
+  // Автоответ по таймеру только если дуэль всё ещё активна
+  gameState.timerTimeout = setTimeout(() => {
+    if (!gameState.isDuelActive) return;
+    if (!gameState.questionAnswered) {
+      gameState.questionAnswered = true;
+      handlePlayerAnswer(null, null, true);
+    }
+  }, total);
+}
+
+
+
+ function simulateOpponentAnswer(question) {
+  const baseDelay = 1300;
+  const extra = Math.random() * 2500;
+  const delay = baseDelay + extra;
+  const willAnswerCorrect = Math.random() < 0.7;
+
+  setTimeout(() => {
+    if (!gameState.isDuelActive) return;
+
+    const idx = gameState.questions.indexOf(question);
+    if (idx === -1 || idx !== gameState.currentQuestionIndex) return;
+    if (!gameState.questionAnswered) {
+      if (willAnswerCorrect) {
+        gameState.opponentScore++;
+      }
+      $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
+    }
+  }, delay);
+}
+
+
+  async function handlePlayerAnswer(optionIndex, btn, isTimeout = false) {
+    if (gameState.questionAnswered) return;
+    gameState.questionAnswered = true;
+    resetTimer();
+
+    const q = gameState.questions[gameState.currentQuestionIndex];
+    const correctIdx = q.correctIndex;
+    const answersButtons = Array.from(document.querySelectorAll("#answers-container .answer-btn"));
+
+    answersButtons.forEach((b) => {
+      b.classList.add("disabled");
+      const idx = parseInt(b.dataset.index, 10);
+      if (idx === correctIdx) {
+        b.classList.add("correct");
+      }
+    });
+
+    let playerCorrect = false;
+
+    if (optionIndex !== null && optionIndex === correctIdx) {
+      playerCorrect = true;
+      gameState.playerScore++;
+      if (btn) btn.classList.add("correct");
+      Sound.correct();
+    } else if (optionIndex !== null && optionIndex !== correctIdx) {
+      if (btn) btn.classList.add("wrong");
+      Sound.wrong();
+    }
+
+    $("duel-score-label").textContent = `${gameState.playerScore} : ${gameState.opponentScore}`;
+
+    if (playerCorrect) {
+      if (q.category.includes("Безопас")) {
+        player.stats.safetyCorrect++;
+      } else if (q.category.includes("Эколог")) {
+        player.stats.ecoCorrect++;
+      } else if (q.category.includes("Инновац")) {
+        player.stats.innovationCorrect++;
+      }
+    }
+
+    savePlayerLocal();
+
+    setTimeout(() => {
+      gameState.currentQuestionIndex++;
+      if (gameState.currentQuestionIndex >= gameState.questions.length) {
+        finishDuel();
+      } else {
+        showQuestion();
+      }
+    }, 900);
+  }
+
+  async function finishDuel() {
+    gameState.isDuelActive = false;
+    resetTimer();
+    const playerScore = gameState.playerScore;
+    const opponentScore = gameState.opponentScore;
+    const mode = gameState.mode;
+
+    let statusText = "";
+    let deltaRating = 0;
+
+    player.battles++;
+
+    if (playerScore > opponentScore) {
+      statusText = "Победа 🎉";
+      player.wins++;
+      deltaRating = mode === "quick" ? 15 : 5;
+      Sound.finishWin();
+    } else if (playerScore < opponentScore) {
+      statusText = "Поражение — но опыт есть 💪";
+      player.losses++;
+      deltaRating = mode === "quick" ? 5 : 3;
+      Sound.finishLose();
+    } else {
+      statusText = "Ничья 🤝";
+      player.draws++;
+      deltaRating = mode === "quick" ? 10 : 4;
+      Sound.finishWin();
+    }
+
+    player.rating += deltaRating;
+    if (player.rating < 0) player.rating = 0;
+
+    updateBadgesFromPlayer();
+    savePlayerLocal();
+
+    // Попытка отправить результат на сервер (если доступен)
+    if (Api.serverAvailable()) {
+      try {
+        const payload = {
+          mode,
+          score_user: playerScore,
+          score_opponent: opponentScore,
+          categories_correct: gameState.questions.map((q, idx) => ({
+            category: q.category,
+            correct: idx < gameState.currentQuestionIndex // упрощённо
+          }))
+        };
+        const serverResult = await Api.finishDuel(payload);
+        if (serverResult && typeof serverResult.new_rating === "number") {
+          player.rating = serverResult.new_rating;
+          deltaRating = serverResult.rating_delta || deltaRating;
+          player.battles = serverResult.battles ?? player.battles;
+          player.wins = serverResult.wins ?? player.wins;
+          player.losses = serverResult.losses ?? player.losses;
+          player.draws = serverResult.draws ?? player.draws;
+          if (serverResult.badges) {
+            player.badges = serverResult.badges.map(b => b.code);
+          }
+          savePlayerLocal();
+        }
+      } catch (e) {
+        console.warn("finishDuel server sync failed", e);
+      }
+    }
+
+    $("result-score").textContent = `${playerScore} : ${opponentScore}`;
+    $("result-status-label").textContent = statusText;
+    $("result-delta-label").textContent = `Рейтинг: ${deltaRating >= 0 ? "+" : ""}${deltaRating} · Дуэлей: +1`;
+    $("result-rating-value").textContent = player.rating;
+    $("result-battles-value").textContent = player.battles;
+    $("result-wl-value").textContent = `${player.wins} / ${player.losses} / ${player.draws}`;
+
+    $("result-mode-pill").textContent = mode === "quick" ? "Быстрая дуэль" : "Тренировка";
+    $("result-subtitle").textContent =
+      Api.serverAvailable()
+        ? "Результат уже учтён в общем серверном рейтинге."
+        : "Сейчас вы в локальном режиме. При подключении сервера прогресс можно синхронизировать.";
+
+    switchScreen("screen-result");
+  }
+
+  // --- ИНИЦИАЛИЗАЦИЯ TELEGRAM + ЗАГРУЗКА ИГРОКА ---
+
+  function initTelegram() {
+    let tg = null;
+    if (window.Telegram && window.Telegram.WebApp) {
+      tg = window.Telegram.WebApp;
+      tg.ready();
+      const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
+      if (user) {
+        player.tgId = user.id;
+        player.avatarUrl = user.photo_url || null;
+        loadPlayerLocal(player.tgId);
+        if (!player.name || player.name === "Сотрудник СИБУР") {
+          player.name = user.first_name + (user.last_name ? " " + user.last_name : "");
+        }
+        savePlayerLocal();
+        $("splash-footer").textContent =
+          "Мы определили вас по аккаунту Telegram. Нажмите «Продолжить», чтобы войти в игру.";
+      }
+    } else {
+      // Запуск из браузера – используем демо-профиль
+      loadPlayerLocal(null);
+    }
+  }
+
+  function isRegistered() {
+    return !!player.name && player.name !== "Сотрудник СИБУР";
+  }
+
+  function startLoadingSequence() {
+    switchScreen("screen-loading");
+    const bar = $("loading-progress-bar");
+    if (!bar) {
+      showNameOverlayIfNeeded();
+      return;
+    }
+
+    let progress = 0;
+    const stepMs = 40;
+
+    const timer = setInterval(() => {
+      progress += 3;
+      if (progress > 100) progress = 100;
+
+      bar.style.width = progress + "%";
+      bar.textContent = progress + "%";
+
+      if (progress >= 100) {
+        clearInterval(timer);
+        setTimeout(() => {
+          if (isRegistered()) {
+            updateMainScreen();
+            switchScreen("screen-main");
+          } else {
+            showNameOverlayIfNeeded();
+          }
+        }, 300);
+      }
+    }, stepMs);
+  }
+
+  function showNameOverlayIfNeeded() {
+    if (!player.name || player.name === "Сотрудник СИБУР") {
+      const input = $("name-input");
+      if (input) input.value = "";
+      const ov = $("name-overlay");
+      if (ov) ov.classList.add("active");
+    } else {
+      updateMainScreen();
+      switchScreen("screen-main");
+    }
+  }
+
+  async function init() {
+    initTelegram();
+    updateMainScreen();
+    updateBadgesFromPlayer();
+
+    // Разблокируем звук по первому клику
+    document.body.addEventListener(
+      "click",
+      () => {
+        Sound.unlock();
+      },
+      { once: true }
+    );
+
+    // Проверяем сервер рейтинга
+    Api.checkServer().then((ok) => {
+      const footer = $("splash-footer");
+      if (footer) {
+        if (ok) {
+          footer.textContent =
+            "Статус: сервер рейтинга подключен. Ваш прогресс и рейтинг сохраняются в базе данных.";
+        } else {
+          footer.textContent =
+            "Статус: сервер рейтинга недоступен, используется локальный демо-режим.";
+        }
+      }
+
+      // Прогрев базы: сразу запрашиваем лидерборд
+      if (ok) {
+        Api.getLeaderboard().catch((err) => {
+          console.warn("DB warmup (getLeaderboard) failed", err);
+        });
+      }
+    });
+
+    // Кнопка «Сохранить имя»
+    const btnNameSave = $("btn-name-save");
+    if (btnNameSave) {
+      btnNameSave.addEventListener("click", () => {
+        const input = $("name-input");
+        if (!input) return;
+        const name = input.value.trim();
+        if (!name) return;
+        player.name = name;
+        savePlayerLocal();
+        const ov = $("name-overlay");
+        if (ov) ov.classList.remove("active");
+        updateMainScreen();
+        switchScreen("screen-main");
+      });
+    }
+
+    // Кнопки быстрого старта
+    const btnQuick = $("btn-play-quick");
+    if (btnQuick) {
+      btnQuick.addEventListener("click", () => startMatchmaking("quick"));
+    }
+	
+// Кнопка "Отмена" на оверлее поиска соперника
+const btnMatchCancel = $("btn-match-cancel");
+if (btnMatchCancel) {
+  btnMatchCancel.addEventListener("click", () => {
+    stopMatchmaking();
+  });
+}
+
+    const btnBot = $("btn-play-bot");
+    if (btnBot) {
+      btnBot.addEventListener("click", () => startDuel("bot"));
+    }
+
+    // Переключение вкладок в нижнем меню
+    const bottomNavButtons = document.querySelectorAll(".bottom-nav-btn[data-tab]");
+    bottomNavButtons.forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const tab = btn.dataset.tab;
+
+        bottomNavButtons.forEach((b) => {
+          b.classList.toggle("active", b === btn);
+        });
+// При переходе по нижнему меню останавливаем поиск и таймеры
+stopMatchmaking();
+gameState.isDuelActive = false;
+resetTimer();
+
+        if (tab === "home") {
+          updateMainScreen();
+          switchScreen("screen-main");
+        } else if (tab === "badges") {
+          renderBadges();
+          switchScreen("screen-badges");
+        } else if (tab === "game") {
+          startMatchmaking("quick");
+        } else if (tab === "rating") {
+          let serverData = null;
+          if (Api.serverAvailable()) {
+            serverData = await Api.getLeaderboard();
+          }
+          renderLeaderboard(serverData);
+          switchScreen("screen-leaderboard");
+        } else if (tab === "profile") {
+          const input = $("name-input");
+          if (input) input.value = player.name || "";
+          const ov = $("name-overlay");
+          if (ov) ov.classList.add("active");
+        }
+      });
+    });
+
+    const btnBadgesBack = $("btn-badges-back");
+    if (btnBadgesBack) {
+      btnBadgesBack.addEventListener("click", () => {
+        updateMainScreen();
+        switchScreen("screen-main");
+      });
+    }
+
+    const btnLeaderboardBack = $("btn-leaderboard-back");
+    if (btnLeaderboardBack) {
+      btnLeaderboardBack.addEventListener("click", () => {
+        updateMainScreen();
+        switchScreen("screen-main");
+      });
+    }
+
+    const btnExit = $("btn-duel-exit");
+    if (btnExit) {
+      btnExit.addEventListener("click", () => {
+  gameState.isDuelActive = false;
+  resetTimer();
+  updateMainScreen();
+  switchScreen("screen-main");
+});
+}
+
+    const btnSkip = $("btn-duel-skip");
+    if (btnSkip) {
+      btnSkip.addEventListener("click", () => {
+        resetTimer();
+        finishDuel();
+      });
+    }
+
+    const btnAgain = $("btn-result-again");
+    if (btnAgain) {
+      btnAgain.addEventListener("click", () => {
+        updateMainScreen();
+        startDuel("quick");
+      });
+    }
+
+    const btnResultMain = $("btn-result-main");
+    if (btnResultMain) {
+      btnResultMain.addEventListener("click", () => {
+        updateMainScreen();
+        switchScreen("screen-main");
+      });
+    }
+
+
+    // В самом конце — запуск анимации загрузки
+    startLoadingSequence();
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
